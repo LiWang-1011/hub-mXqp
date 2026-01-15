@@ -1,0 +1,87 @@
+import jieba
+import sklearn
+import torch
+import pandas as pd
+import numpy as np
+
+print('jieba版本：', jieba.__version__)
+print('sklearn版本：', sklearn.__version__)
+print('pytorch版本：', torch.__version__)
+print('pandas版本：' , pd.__version__)
+print('所有库已成功安装！')
+#%%
+import pandas as pd
+import jieba # 中文分词用途
+from sklearn.feature_extraction.text import CountVectorizer # 词频统计
+from sklearn.neighbors import KNeighborsClassifier # KNN
+
+
+dataset = pd.read_csv("dataset.csv", sep="\t", header=None, nrows=10000)
+print(dataset[1].value_counts())
+input_sententce = dataset[0].apply(lambda x: " ".join(jieba.lcut(x))) # sklearn对中文处理
+
+vector = CountVectorizer() # 对文本进行提取特征 默认是使用标点符号分词， 不是模型
+vector.fit(input_sententce.values) # 统计词表
+input_feature = vector.transform(input_sententce.values) # 100 * 词表大小
+
+model = KNeighborsClassifier()
+model.fit(input_feature, dataset[1].values)
+
+
+def text_calssify_using_ml(text: str) -> str:
+    """
+    文本分类 (机器学习ml)，输入文本文成类别划分
+    """
+    test_sentence = " ".join(jieba.lcut(text))
+    test_feature = vector.transform([test_sentence])
+    return model.predict(test_feature)[0]
+
+    
+if __name__ == '__main__':
+    # pandas 用来进行表格的加载和分析
+    # numpy 从矩阵的角度进行加载和计算
+    print("机器学习：",text_calssify_using_ml("帮我导航到西安"))
+    
+#%%
+from openai import OpenAI
+
+client = OpenAI(
+    # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",
+    # https://bailian.console.aliyun.com/?tab=model#/api-key
+    api_key="sk-35cd3408e5f0478d96f38e1d55c539af", # 账号绑定王丽的：sk-35cd3408e5f0478d96f38e1d55c539af
+
+    # 大模型厂商的地址，阿里云
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+)
+
+
+def text_calssify_using_llm(text: str) -> str:
+    """
+    文本分类(大语言模型llm)，输入文本文成类别划分
+    """
+    completion = client.chat.completions.create(
+    # 模型列表：https://help.aliyun.com/zh/model-studio/getting-started/models
+    model="qwen-flash", # 模型的代号
+
+    # 对话列表
+    messages=[
+        {"role": "system", "content": f"""帮我文本分类：{text}
+输出类别只能从如下中进行选择：
+FilmTele-Play            
+Video-Play              
+Music-Play               
+Radio-Listen             
+Alarm-Update             
+Travel-Query             
+HomeAppliance-Control   
+Weather-Query            
+Calendar-Query           
+TVProgram-Play            
+Audio-Play                
+Other                      """}, # 给大模型的命令，角色的定义
+    ]
+)
+    return completion.choices[0].message.content
+    
+if __name__ == '__main__':
+    print("大语言模型",text_calssify_using_llm("帮我导航到西安"))
